@@ -1,0 +1,113 @@
+import { useState } from 'react'
+import { useDispatch } from 'react-redux'
+import { useNavigate } from 'react-router-dom'
+import { login } from '../../store/slices/authSlice'
+import { toast } from 'sonner'
+import { Eye, EyeOff, Loader } from 'lucide-react'
+
+export default function LoginPage() {
+    const dispatch = useDispatch()
+    const navigate = useNavigate()
+
+    const [form, setForm] = useState({ email: '', password: '' })
+    const [showPassword, setShowPassword] = useState(false)
+    const [loading, setLoading] = useState(false)
+
+    const handleChange = (e) => {
+        setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault()
+
+        if (!form.email || !form.password) {
+            toast.error('Please fill in all fields')
+            return
+        }
+
+        setLoading(true)
+
+        // Temp: simüle edilmiş async
+        await new Promise((r) => setTimeout(r, 800))
+
+        const success = dispatch(login({ email: form.email, password: form.password }))
+
+        if (success) {
+            toast.success('Welcome back!')
+            navigate('/dashboard')
+        } else {
+            toast.error('Invalid email or password')
+        }
+
+        setLoading(false)
+    }
+
+    return (
+        <div className="bg-surface border border-border rounded-2xl p-8">
+            <div className="mb-6">
+                <h1 className="text-2xl font-display font-bold text-fg">Welcome back</h1>
+                <p className="text-sm text-fg-muted mt-1">Sign in to your panel</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Email */}
+                <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-fg">Email</label>
+                    <input
+                        name="email"
+                        type="email"
+                        value={form.email}
+                        onChange={handleChange}
+                        placeholder="admin@portfolio.com"
+                        className="w-full h-10 px-3 rounded-lg border border-border bg-bg text-fg text-sm placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
+                    />
+                </div>
+
+                {/* Password */}
+                <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-fg">Password</label>
+                    <div className="relative">
+                        <input
+                            name="password"
+                            type={showPassword ? 'text' : 'password'}
+                            value={form.password}
+                            onChange={handleChange}
+                            placeholder="••••••••"
+                            className="w-full h-10 px-3 pr-10 rounded-lg border border-border bg-bg text-fg text-sm placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg transition-colors"
+                        >
+                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Submit */}
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-10 rounded-lg bg-accent text-white text-sm font-medium flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-60 transition-all"
+                >
+                    {loading ? (
+                        <>
+                            <Loader size={16} className="animate-spin" />
+                            Signing in...
+                        </>
+                    ) : (
+                        'Sign in'
+                    )}
+                </button>
+            </form>
+
+            {/* Temp credentials hint */}
+            <div className="mt-4 p-3 rounded-lg bg-bg-secondary border border-border">
+                <p className="text-xs text-fg-muted text-center">
+                    <span className="font-medium text-fg">Temp:</span> admin@portfolio.com / admin123
+                </p>
+            </div>
+        </div>
+    )
+}

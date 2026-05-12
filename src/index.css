@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+@layer base {
+    :root {
+        --accent: 24 95% 53%;
+        --accent-fg: 0 0% 100%;
+
+        --bg: 0 0% 98%;
+        --bg-secondary: 0 0% 94%;
+        --surface: 0 0% 100%;
+        --surface-hover: 0 0% 96%;
+        --border: 0 0% 88%;
+
+        --fg: 0 0% 8%;
+        --fg-muted: 0 0% 45%;
+
+        --sidebar-w: 240px;
+        --sidebar-w-collapsed: 64px;
+    }
+
+    .dark {
+        --bg: 222 14% 9%;
+        --bg-secondary: 222 14% 6%;
+        --surface: 222 14% 12%;
+        --surface-hover: 222 14% 15%;
+        --border: 222 14% 18%;
+
+        --fg: 0 0% 95%;
+        --fg-muted: 0 0% 50%;
+    }
+
+    * {
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    body {
+        background-color: hsl(var(--bg));
+        color: hsl(var(--fg));
+        font-family: 'DM Sans', sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: 'Syne', sans-serif;
+    }
+}
