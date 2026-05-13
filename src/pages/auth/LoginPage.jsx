@@ -1,17 +1,17 @@
 import { useState } from 'react'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import { login } from '../../store/slices/authSlice'
+import { loginThunk } from '../../store/slices/authSlice'
 import { toast } from 'sonner'
 import { Eye, EyeOff, Loader } from 'lucide-react'
 
 export default function LoginPage() {
     const dispatch = useDispatch()
     const navigate = useNavigate()
+    const { loading, error } = useSelector((s) => s.auth)
 
     const [form, setForm] = useState({ email: '', password: '' })
     const [showPassword, setShowPassword] = useState(false)
-    const [loading, setLoading] = useState(false)
 
     const handleChange = (e) => {
         setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
@@ -25,21 +25,14 @@ export default function LoginPage() {
             return
         }
 
-        setLoading(true)
+        const result = await dispatch(loginThunk(form))
 
-        // Temp: simüle edilmiş async
-        await new Promise((r) => setTimeout(r, 800))
-
-        const success = dispatch(login({ email: form.email, password: form.password }))
-
-        if (success) {
+        if (loginThunk.fulfilled.match(result)) {
             toast.success('Welcome back!')
             navigate('/dashboard')
         } else {
-            toast.error('Invalid email or password')
+            toast.error(result.payload || 'Login failed')
         }
-
-        setLoading(false)
     }
 
     return (
@@ -50,7 +43,6 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Email */}
                 <div className="space-y-1.5">
                     <label className="text-sm font-medium text-fg">Email</label>
                     <input
@@ -63,7 +55,6 @@ export default function LoginPage() {
                     />
                 </div>
 
-                {/* Password */}
                 <div className="space-y-1.5">
                     <label className="text-sm font-medium text-fg">Password</label>
                     <div className="relative">
@@ -85,7 +76,6 @@ export default function LoginPage() {
                     </div>
                 </div>
 
-                {/* Submit */}
                 <button
                     type="submit"
                     disabled={loading}
@@ -101,13 +91,6 @@ export default function LoginPage() {
                     )}
                 </button>
             </form>
-
-            {/* Temp credentials hint */}
-            <div className="mt-4 p-3 rounded-lg bg-bg-secondary border border-border">
-                <p className="text-xs text-fg-muted text-center">
-                    <span className="font-medium text-fg">Temp:</span> admin@portfolio.com / admin123
-                </p>
-            </div>
         </div>
     )
 }

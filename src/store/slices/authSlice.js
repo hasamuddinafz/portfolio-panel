@@ -1,33 +1,64 @@
-import { createSlice } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import api from '../../libs/api'
 
-const TEMP_USER = {
-    id: 1,
-    name: 'John Doe',
-    email: 'admin@portfolio.com',
-    avatar: null,
-}
+export const loginThunk = createAsyncThunk(
+    'auth/login',
+    async ({ email, password }, { rejectWithValue }) => {
+        try {
+            const response = await api.post('/auth/login', { email, password })
+            return response.data
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Login failed')
+        }
+    }
+)
 
 const authSlice = createSlice({
     name: 'auth',
     initialState: {
-        isAuthenticated: false,
-        user: null,
+        isAuthenticated: !!localStorage.getItem('token'),
+        user: JSON.parse(localStorage.getItem('user') || 'null'),
+        token: localStorage.getItem('token') || null,
+        loading: false,
+        error: null,
     },
     reducers: {
-        login: (state, action) => {
-            const { email, password } = action.payload
-            // Temp — developer branch'te API thunk olacak
-            if (email === 'admin@portfolio.com' && password === 'admin123') {
-                state.isAuthenticated = true
-                state.user = TEMP_USER
-            }
-        },
         logout: (state) => {
             state.isAuthenticated = false
             state.user = null
+            state.token = null
+            localStorage.removeItem('token')
+            localStorage.removeItem('user')
         },
+    },
+    extraReducers: (builder) => {
+        builder
+            .addCase(loginThunk.pending, (state) => {
+                state.loading = true
+                state.error = null
+            })
+            .addCase(loginThunk.fulfilled, (state, action) => {
+                state.loading = false
+                state.isAuthenticated = true
+                state.token = action.payload.token
+                state.user = {
+                    fullName: action.payload.fullName,
+                    email: action.payload.email,
+                    roles: action.payload.roles,
+                }
+                localStorage.setItem('token', action.payload.token)
+                localStorage.setItem('user', JSON.stringify({
+                    fullName: action.payload.fullName,
+                    email: action.payload.email,
+                    roles: action.payload.roles,
+                }))
+            })
+            .addCase(loginThunk.rejected, (state, action) => {
+                state.loading = false
+                state.error = action.payload
+            })
     },
 })
 
-export const { login, logout } = authSlice.actions
+export const { logout } = authSlice.actions
 export default authSlice.reducer
