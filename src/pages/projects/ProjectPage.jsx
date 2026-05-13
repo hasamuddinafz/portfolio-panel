@@ -1,49 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Pencil, Trash2, ExternalLink, Github, FolderKanban, GitBranch } from 'lucide-react'
-
-const TEMP_PROJECTS = [
-    {
-        id: 1,
-        title: 'E-Commerce App',
-        description: 'Full stack e-commerce platform with payment integration.',
-        tech: ['React', 'Node.js', 'MongoDB'],
-        status: 'published',
-        github: 'https://github.com',
-        live: 'https://example.com',
-        image: null,
-    },
-    {
-        id: 2,
-        title: 'Portfolio v3',
-        description: 'Personal portfolio built with Next.js and Tailwind CSS.',
-        tech: ['Next.js', 'Tailwind', 'Framer Motion'],
-        status: 'draft',
-        github: 'https://github.com',
-        live: null,
-        image: null,
-    },
-    {
-        id: 3,
-        title: 'Chat Application',
-        description: 'Real-time chat app with rooms and private messaging.',
-        tech: ['Socket.io', 'Express', 'React'],
-        status: 'published',
-        github: 'https://github.com',
-        live: 'https://example.com',
-        image: null,
-    },
-    {
-        id: 4,
-        title: 'Task Manager',
-        description: 'Kanban-style task management app with drag and drop.',
-        tech: ['React', 'Redux', 'Tailwind'],
-        status: 'draft',
-        github: null,
-        live: null,
-        image: null,
-    },
-]
+import { Plus, Pencil, Trash2, ExternalLink, GitBranch, FolderKanban, Loader } from 'lucide-react'
+import { toast } from 'sonner'
+import { deleteProject, getAllProjects } from '../../libs/projectService'
+import Loading from '../../components/ui/Loading'
 
 const statusStyles = {
     published: 'bg-green-500/10 text-green-500',
@@ -52,18 +12,48 @@ const statusStyles = {
 
 export default function ProjectPage() {
     const navigate = useNavigate()
-    const [projects, setProjects] = useState(TEMP_PROJECTS)
+    const [projects, setProjects] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [deleteLoadingId, setDeleteLoadingId] = useState(null)
     const [filter, setFilter] = useState('all')
+
+    useEffect(() => {
+        fetchProjects()
+    }, [])
+
+    const fetchProjects = async () => {
+        try {
+            setLoading(true)
+            const response = await getAllProjects()
+            setProjects(response.data)
+        } catch (err) {
+            toast.error('Failed to fetch projects')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleDelete = async (id) => {
+        try {
+            setDeleteLoadingId(id)
+            await deleteProject(id)
+            setProjects((prev) => prev.filter((p) => p.id !== id))
+            toast.success('Project deleted')
+        } catch (err) {
+            toast.error('Failed to delete project')
+        } finally {
+            setDeleteLoadingId(null)
+        }
+    }
 
     const filtered =
         filter === 'all' ? projects : projects.filter((p) => p.status === filter)
 
-    const handleDelete = (id) => {
-        setProjects((prev) => prev.filter((p) => p.id !== id))
-    }
+    if (loading) return <Loading />
 
     return (
         <div className="space-y-6">
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-display font-bold text-fg">Projects</h1>
@@ -78,6 +68,7 @@ export default function ProjectPage() {
                 </button>
             </div>
 
+            {/* Filter */}
             <div className="flex items-center gap-2">
                 {['all', 'published', 'draft'].map((f) => (
                     <button
@@ -93,6 +84,7 @@ export default function ProjectPage() {
                 ))}
             </div>
 
+            {/* Grid */}
             {filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-fg-muted">
                     <FolderKanban size={40} className="mb-3 opacity-30" />
@@ -115,19 +107,20 @@ export default function ProjectPage() {
                                 <div className="flex items-start justify-between gap-2">
                                     <h3 className="font-display font-semibold text-fg">{project.title}</h3>
                                     <span
-                                        className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${statusStyles[project.status]}`}
+                                        className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${project.status ? statusStyles.published : statusStyles.draft
+                                            }`}
                                     >
-                                        {project.status}
+                                        {project.status ? 'published' : 'draft'}
                                     </span>
                                 </div>
                                 <p className="text-sm text-fg-muted line-clamp-2">{project.description}</p>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {project.tech.map((t) => (
+                                    {project.techStack?.split(',').map((t) => (
                                         <span
                                             key={t}
                                             className="text-xs px-2 py-0.5 rounded-md bg-bg-secondary text-fg-muted border border-border"
                                         >
-                                            {t}
+                                            {t.trim()}
                                         </span>
                                     ))}
                                 </div>
@@ -135,9 +128,9 @@ export default function ProjectPage() {
 
                             <div className="flex items-center justify-between border-t border-border pt-3">
                                 <div className="flex items-center gap-2">
-                                    {project.github && (
+                                    {project.githubUrl && (
                                         <a
-                                            href={project.github}
+                                            href={project.githubUrl}
                                             target="_blank"
                                             rel="noreferrer"
                                             className="w-8 h-8 rounded-lg flex items-center justify-center text-fg-muted hover:bg-surface-hover hover:text-fg transition-all"
@@ -145,9 +138,9 @@ export default function ProjectPage() {
                                             <GitBranch size={15} />
                                         </a>
                                     )}
-                                    {project.live && (
+                                    {project.liveUrl && (
                                         <a
-                                            href={project.live}
+                                            href={project.liveUrl}
                                             target="_blank"
                                             rel="noreferrer"
                                             className="w-8 h-8 rounded-lg flex items-center justify-center text-fg-muted hover:bg-surface-hover hover:text-fg transition-all"
@@ -165,9 +158,14 @@ export default function ProjectPage() {
                                     </button>
                                     <button
                                         onClick={() => handleDelete(project.id)}
-                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-fg-muted hover:bg-red-500/10 hover:text-red-500 transition-all"
+                                        disabled={deleteLoadingId === project.id}
+                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-fg-muted hover:bg-red-500/10 hover:text-red-500 transition-all disabled:opacity-50"
                                     >
-                                        <Trash2 size={15} />
+                                        {deleteLoadingId === project.id ? (
+                                            <Loader size={15} className="animate-spin" />
+                                        ) : (
+                                            <Trash2 size={15} />
+                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -175,8 +173,7 @@ export default function ProjectPage() {
                     ))
                     }
                 </div >
-            )
-            }
+            )}
         </div >
     )
 }

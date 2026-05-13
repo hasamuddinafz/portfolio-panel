@@ -1,54 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, X } from 'lucide-react'
-
-const TEMP_PROJECTS = [
-    {
-        id: 1,
-        title: 'E-Commerce App',
-        description: 'Full stack e-commerce platform with payment integration.',
-        tech: ['React', 'Node.js', 'MongoDB'],
-        status: 'published',
-        github: 'https://github.com',
-        live: 'https://example.com',
-    },
-    {
-        id: 2,
-        title: 'Portfolio v3',
-        description: 'Personal portfolio built with Next.js and Tailwind CSS.',
-        tech: ['Next.js', 'Tailwind', 'Framer Motion'],
-        status: 'draft',
-        github: 'https://github.com',
-        live: '',
-    },
-    {
-        id: 3,
-        title: 'Chat Application',
-        description: 'Real-time chat app with rooms and private messaging.',
-        tech: ['Socket.io', 'Express', 'React'],
-        status: 'published',
-        github: 'https://github.com',
-        live: 'https://example.com',
-    },
-    {
-        id: 4,
-        title: 'Task Manager',
-        description: 'Kanban-style task management app with drag and drop.',
-        tech: ['React', 'Redux', 'Tailwind'],
-        status: 'draft',
-        github: '',
-        live: '',
-    },
-]
+import { ArrowLeft, Plus, X, Loader } from 'lucide-react'
+import { createProject, getProjectById, updateProject } from '../../libs/projectService'
+import Loading from '../../components/ui/Loading'
 
 const EMPTY_FORM = {
     title: '',
     description: '',
-    tech: [],
-    status: 'draft',
-    github: '',
-    live: '',
+    techStack: '',
+    status: false,
+    githubUrl: '',
+    liveUrl: '',
 }
 
 export default function ProjectEditPage() {
@@ -56,12 +19,38 @@ export default function ProjectEditPage() {
     const navigate = useNavigate()
     const isEdit = Boolean(id)
 
-    const existing = isEdit
-        ? TEMP_PROJECTS.find((p) => p.id === Number(id))
-        : null
-
-    const [form, setForm] = useState(existing ?? EMPTY_FORM)
+    const [form, setForm] = useState(EMPTY_FORM)
+    const [techList, setTechList] = useState([])
     const [techInput, setTechInput] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [submitLoading, setSubmitLoading] = useState(false)
+
+    useEffect(() => {
+        if (isEdit) {
+            const fetch = async () => {
+                try {
+                    setLoading(true)
+                    const response = await getProjectById(id)
+                    const project = response.data
+                    setForm({
+                        title: project.title,
+                        description: project.description,
+                        techStack: project.techStack,
+                        status: project.status,
+                        githubUrl: project.githubUrl ?? '',
+                        liveUrl: project.liveUrl ?? '',
+                    })
+                    setTechList(project.techStack ? project.techStack.split(',').map(t => t.trim()) : [])
+                } catch (err) {
+                    toast.error('Failed to fetch project')
+                    navigate('/projects')
+                } finally {
+                    setLoading(false)
+                }
+            }
+            fetch()
+        }
+    }, [id])
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -71,16 +60,16 @@ export default function ProjectEditPage() {
     const addTech = () => {
         const trimmed = techInput.trim()
         if (!trimmed) return
-        if (form.tech.includes(trimmed)) {
+        if (techList.includes(trimmed)) {
             toast.error('Already added')
             return
         }
-        setForm((prev) => ({ ...prev, tech: [...prev.tech, trimmed] }))
+        setTechList((prev) => [...prev, trimmed])
         setTechInput('')
     }
 
     const removeTech = (t) => {
-        setForm((prev) => ({ ...prev, tech: prev.tech.filter((x) => x !== t) }))
+        setTechList((prev) => prev.filter((x) => x !== t))
     }
 
     const handleTechKeyDown = (e) => {
@@ -90,7 +79,7 @@ export default function ProjectEditPage() {
         }
     }
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault()
 
         if (!form.title.trim()) {
@@ -101,11 +90,34 @@ export default function ProjectEditPage() {
             toast.error('Description is required')
             return
         }
+        if (techList.length === 0) {
+            toast.error('At least one tech is required')
+            return
+        }
 
-        // Temp — developer branch'te API'ye bağlanacak
-        toast.success(isEdit ? 'Project updated!' : 'Project created!')
-        navigate('/projects')
+        const payload = {
+            ...form,
+            techStack: techList.join(', '),
+        }
+
+        try {
+            setSubmitLoading(true)
+            if (isEdit) {
+                await updateProject(id, payload)
+                toast.success('Project updated!')
+            } else {
+                await createProject(payload)
+                toast.success('Project created!')
+            }
+            navigate('/projects')
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Something went wrong')
+        } finally {
+            setSubmitLoading(false)
+        }
     }
+
+    if (loading) return <Loading />
 
     return (
         <div className="space-y-6">
@@ -122,7 +134,7 @@ export default function ProjectEditPage() {
                         {isEdit ? 'Edit Project' : 'New Project'}
                     </h1>
                     <p className="text-sm text-fg-muted mt-0.5">
-                        {isEdit ? `Editing: ${existing?.title}` : 'Fill in the details below'}
+                        {isEdit ? 'Update project details' : 'Fill in the details below'}
                     </p>
                 </div>
             </div>
@@ -175,9 +187,9 @@ export default function ProjectEditPage() {
                                 <Plus size={16} />
                             </button>
                         </div>
-                        {form.tech.length > 0 && (
+                        {techList.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-2">
-                                {form.tech.map((t) => (
+                                {techList.map((t) => (
                                     <span
                                         key={t}
                                         className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-bg-secondary text-fg-muted border border-border"
@@ -200,18 +212,21 @@ export default function ProjectEditPage() {
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium text-fg">Status</label>
                         <div className="flex gap-2">
-                            {['draft', 'published'].map((s) => (
+                            {[
+                                { label: 'Draft', value: false },
+                                { label: 'Published', value: true },
+                            ].map((s) => (
                                 <button
-                                    key={s}
+                                    key={s.label}
                                     type="button"
-                                    onClick={() => setForm((prev) => ({ ...prev, status: s }))}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all
-                    ${form.status === s
+                                    onClick={() => setForm((prev) => ({ ...prev, status: s.value }))}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all
+                    ${form.status === s.value
                                             ? 'bg-accent text-white'
                                             : 'bg-bg border border-border text-fg-muted hover:text-fg'
                                         }`}
                                 >
-                                    {s}
+                                    {s.label}
                                 </button>
                             ))}
                         </div>
@@ -223,8 +238,8 @@ export default function ProjectEditPage() {
                             GitHub URL <span className="text-fg-muted font-normal">(optional)</span>
                         </label>
                         <input
-                            name="github"
-                            value={form.github}
+                            name="githubUrl"
+                            value={form.githubUrl}
                             onChange={handleChange}
                             placeholder="https://github.com/..."
                             className="w-full h-10 px-3 rounded-lg border border-border bg-bg text-fg text-sm placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
@@ -237,8 +252,8 @@ export default function ProjectEditPage() {
                             Live URL <span className="text-fg-muted font-normal">(optional)</span>
                         </label>
                         <input
-                            name="live"
-                            value={form.live}
+                            name="liveUrl"
+                            value={form.liveUrl}
                             onChange={handleChange}
                             placeholder="https://..."
                             className="w-full h-10 px-3 rounded-lg border border-border bg-bg text-fg text-sm placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
@@ -257,8 +272,10 @@ export default function ProjectEditPage() {
                     </button>
                     <button
                         type="submit"
-                        className="px-6 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:opacity-90 transition-all"
+                        disabled={submitLoading}
+                        className="px-6 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:opacity-90 disabled:opacity-60 transition-all flex items-center gap-2"
                     >
+                        {submitLoading && <Loader size={14} className="animate-spin" />}
                         {isEdit ? 'Save Changes' : 'Create Project'}
                     </button>
                 </div>
