@@ -42,12 +42,14 @@ const authSlice = createSlice({
                 state.isAuthenticated = true
                 state.token = action.payload.token
                 state.user = {
+                    id: action.payload.id,
                     fullName: action.payload.fullName,
                     email: action.payload.email,
                     roles: action.payload.roles,
                 }
                 localStorage.setItem('token', action.payload.token)
                 localStorage.setItem('user', JSON.stringify({
+                    id: action.payload.id,
                     fullName: action.payload.fullName,
                     email: action.payload.email,
                     roles: action.payload.roles,

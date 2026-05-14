@@ -12,6 +12,8 @@ import ProjectEditPage from './pages/projects/ProjectEditPage'
 import BlogPage from './pages/blog/BlogPage'
 import BlogEditPage from './pages/blog/BlogEditPage'
 import SettingsPage from './pages/settings/SettingsPage'
+import UsersPage from './pages/users/UserPage'
+import UserEditPage from './pages/users/UserEditPage'
 
 export default function App() {
   return (
@@ -37,7 +39,9 @@ export default function App() {
             <Route path="/blog" element={<BlogPage />} />
             <Route path="/blog/new" element={<BlogEditPage />} />
             <Route path="/blog/:id/edit" element={<BlogEditPage />} />
-
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/users/new" element={<UserEditPage />} />
+            <Route path="/users/:id/edit" element={<UserEditPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
