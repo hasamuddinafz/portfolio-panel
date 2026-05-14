@@ -8,7 +8,7 @@ WORKDIR /app
 # Önce sadece package dosyalarını kopyala (cache optimizasyonu)
 COPY package.json package-lock.json ./
 
-RUN npm ci
+RUN npm install
 
 # Kaynak kodları kopyala ve build al
 COPY . .
