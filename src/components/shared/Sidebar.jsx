@@ -11,12 +11,14 @@ import {
     ChevronRight,
     LogOut,
     Zap,
+    Users
 } from 'lucide-react'
 
 const NAV_ITEMS = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/projects', icon: FolderKanban, label: 'Projects' },
     { to: '/blog', icon: FileText, label: 'Blog' },
+    { to: '/users', icon: Users, label: 'Users' },
     { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
