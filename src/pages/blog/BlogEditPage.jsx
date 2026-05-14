@@ -1,49 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, X } from 'lucide-react'
-
-const TEMP_POSTS = [
-    {
-        id: 1,
-        title: 'Getting Started with Redux Toolkit',
-        excerpt: 'A comprehensive guide to managing state with Redux Toolkit in React applications.',
-        content: '',
-        tags: ['React', 'Redux', 'State Management'],
-        status: 'published',
-    },
-    {
-        id: 2,
-        title: 'CSS Grid vs Flexbox',
-        excerpt: 'When to use CSS Grid and when to use Flexbox — a practical comparison.',
-        content: '',
-        tags: ['CSS', 'Frontend'],
-        status: 'draft',
-    },
-    {
-        id: 3,
-        title: 'React Performance Tips',
-        excerpt: 'Practical tips to optimize your React app and avoid unnecessary re-renders.',
-        content: '',
-        tags: ['React', 'Performance'],
-        status: 'published',
-    },
-    {
-        id: 4,
-        title: 'Building REST APIs with Express',
-        excerpt: 'Step by step guide to building a production-ready REST API with Express.js.',
-        content: '',
-        tags: ['Node.js', 'Express', 'API'],
-        status: 'draft',
-    },
-]
+import { ArrowLeft, Plus, X, Loader } from 'lucide-react'
+import Loading from '../../components/ui/Loading'
+import { getBlogById, createBlog, updateBlog } from '../../libs/blogService'
+import RichTextEditor from '../../components/ui/RuchTextEditor'
 
 const EMPTY_FORM = {
     title: '',
     excerpt: '',
     content: '',
-    tags: [],
-    status: 'draft',
+    tags: '',
+    status: false,
+    slug: '',
+    externalLink: '',
 }
 
 export default function BlogEditPage() {
@@ -51,31 +21,68 @@ export default function BlogEditPage() {
     const navigate = useNavigate()
     const isEdit = Boolean(id)
 
-    const existing = isEdit
-        ? TEMP_POSTS.find((p) => p.id === Number(id))
-        : null
-
-    const [form, setForm] = useState(existing ?? EMPTY_FORM)
+    const [form, setForm] = useState(EMPTY_FORM)
+    const [tagList, setTagList] = useState([])
     const [tagInput, setTagInput] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [submitLoading, setSubmitLoading] = useState(false)
+
+    useEffect(() => {
+        if (isEdit) {
+            const fetch = async () => {
+                try {
+                    setLoading(true)
+                    const response = await getBlogById(id)
+                    const blog = response.data
+                    setForm({
+                        title: blog.title,
+                        excerpt: blog.excerpt,
+                        content: blog.content,
+                        tags: blog.tags,
+                        status: blog.status,
+                        slug: blog.slug,
+                        externalLink: blog.externalLink ?? '',
+                    })
+                    setTagList(blog.tags ? blog.tags.split(',').map((t) => t.trim()) : [])
+                } catch (err) {
+                    toast.error('Failed to fetch blog')
+                    navigate('/blog')
+                } finally {
+                    setLoading(false)
+                }
+            }
+            fetch()
+        }
+    }, [id])
 
     const handleChange = (e) => {
         const { name, value } = e.target
         setForm((prev) => ({ ...prev, [name]: value }))
+
+        // title'dan otomatik slug üret
+        if (name === 'title') {
+            const slug = value
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+            setForm((prev) => ({ ...prev, title: value, slug }))
+        }
     }
 
     const addTag = () => {
         const trimmed = tagInput.trim()
         if (!trimmed) return
-        if (form.tags.includes(trimmed)) {
+        if (tagList.includes(trimmed)) {
             toast.error('Already added')
             return
         }
-        setForm((prev) => ({ ...prev, tags: [...prev.tags, trimmed] }))
+        setTagList((prev) => [...prev, trimmed])
         setTagInput('')
     }
 
     const removeTag = (t) => {
-        setForm((prev) => ({ ...prev, tags: prev.tags.filter((x) => x !== t) }))
+        setTagList((prev) => prev.filter((x) => x !== t))
     }
 
     const handleTagKeyDown = (e) => {
@@ -85,7 +92,7 @@ export default function BlogEditPage() {
         }
     }
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault()
 
         if (!form.title.trim()) {
@@ -96,10 +103,34 @@ export default function BlogEditPage() {
             toast.error('Excerpt is required')
             return
         }
+        if (!form.slug.trim()) {
+            toast.error('Slug is required')
+            return
+        }
 
-        toast.success(isEdit ? 'Post updated!' : 'Post created!')
-        navigate('/blog')
+        const payload = {
+            ...form,
+            tags: tagList.join(', '),
+        }
+
+        try {
+            setSubmitLoading(true)
+            if (isEdit) {
+                await updateBlog(id, payload)
+                toast.success('Blog updated!')
+            } else {
+                await createBlog(payload)
+                toast.success('Blog created!')
+            }
+            navigate('/blog')
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Something went wrong')
+        } finally {
+            setSubmitLoading(false)
+        }
     }
+
+    if (loading) return <Loading />
 
     return (
         <div className="space-y-6">
@@ -116,7 +147,7 @@ export default function BlogEditPage() {
                         {isEdit ? 'Edit Post' : 'New Post'}
                     </h1>
                     <p className="text-sm text-fg-muted mt-0.5">
-                        {isEdit ? `Editing: ${existing?.title}` : 'Fill in the details below'}
+                        {isEdit ? 'Update post details' : 'Fill in the details below'}
                     </p>
                 </div>
             </div>
@@ -134,6 +165,20 @@ export default function BlogEditPage() {
                             onChange={handleChange}
                             placeholder="My Blog Post"
                             className="w-full h-10 px-3 rounded-lg border border-border bg-bg text-fg text-sm placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
+                        />
+                    </div>
+
+                    {/* Slug */}
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-fg">
+                            Slug <span className="text-fg-muted font-normal">(auto-generated)</span>
+                        </label>
+                        <input
+                            name="slug"
+                            value={form.slug}
+                            onChange={handleChange}
+                            placeholder="my-blog-post"
+                            className="w-full h-10 px-3 rounded-lg border border-border bg-bg text-fg text-sm placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all font-mono"
                         />
                     </div>
 
@@ -155,14 +200,14 @@ export default function BlogEditPage() {
                         <label className="text-sm font-medium text-fg">
                             Content <span className="text-fg-muted font-normal">(Markdown)</span>
                         </label>
-                        <textarea
-                            name="content"
-                            value={form.content}
-                            onChange={handleChange}
-                            placeholder="Write your post content here..."
-                            rows={10}
-                            className="w-full px-3 py-2.5 rounded-lg border border-border bg-bg text-fg text-sm placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all resize-none font-mono"
-                        />
+                        {/* Content */}
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-fg">Content</label>
+                            <RichTextEditor
+                                value={form.content}
+                                onChange={(val) => setForm((prev) => ({ ...prev, content: val }))}
+                            />
+                        </div>
                     </div>
 
                     {/* Tags */}
@@ -184,9 +229,9 @@ export default function BlogEditPage() {
                                 <Plus size={16} />
                             </button>
                         </div>
-                        {form.tags.length > 0 && (
+                        {tagList.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-2">
-                                {form.tags.map((t) => (
+                                {tagList.map((t) => (
                                     <span
                                         key={t}
                                         className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-bg-secondary text-fg-muted border border-border"
@@ -209,21 +254,38 @@ export default function BlogEditPage() {
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium text-fg">Status</label>
                         <div className="flex gap-2">
-                            {['draft', 'published'].map((s) => (
+                            {[
+                                { label: 'Draft', value: false },
+                                { label: 'Published', value: true },
+                            ].map((s) => (
                                 <button
-                                    key={s}
+                                    key={s.label}
                                     type="button"
-                                    onClick={() => setForm((prev) => ({ ...prev, status: s }))}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all
-                    ${form.status === s
+                                    onClick={() => setForm((prev) => ({ ...prev, status: s.value }))}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all
+                    ${form.status === s.value
                                             ? 'bg-accent text-white'
                                             : 'bg-bg border border-border text-fg-muted hover:text-fg'
                                         }`}
                                 >
-                                    {s}
+                                    {s.label}
                                 </button>
                             ))}
                         </div>
+                    </div>
+
+                    {/* External Link */}
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-fg">
+                            External Link <span className="text-fg-muted font-normal">(optional)</span>
+                        </label>
+                        <input
+                            name="externalLink"
+                            value={form.externalLink}
+                            onChange={handleChange}
+                            placeholder="https://medium.com/..."
+                            className="w-full h-10 px-3 rounded-lg border border-border bg-bg text-fg text-sm placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
+                        />
                     </div>
                 </div>
 
@@ -238,8 +300,10 @@ export default function BlogEditPage() {
                     </button>
                     <button
                         type="submit"
-                        className="px-6 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:opacity-90 transition-all"
+                        disabled={submitLoading}
+                        className="px-6 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:opacity-90 disabled:opacity-60 transition-all flex items-center gap-2"
                     >
+                        {submitLoading && <Loader size={14} className="animate-spin" />}
                         {isEdit ? 'Save Changes' : 'Create Post'}
                     </button>
                 </div>

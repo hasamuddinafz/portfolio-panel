@@ -1,58 +1,57 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Pencil, Trash2, FileText } from 'lucide-react'
-
-const TEMP_POSTS = [
-    {
-        id: 1,
-        title: 'Getting Started with Redux Toolkit',
-        excerpt: 'A comprehensive guide to managing state with Redux Toolkit in React applications.',
-        tags: ['React', 'Redux', 'State Management'],
-        status: 'published',
-        date: 'May 10, 2026',
-    },
-    {
-        id: 2,
-        title: 'CSS Grid vs Flexbox',
-        excerpt: 'When to use CSS Grid and when to use Flexbox — a practical comparison.',
-        tags: ['CSS', 'Frontend'],
-        status: 'draft',
-        date: 'May 5, 2026',
-    },
-    {
-        id: 3,
-        title: 'React Performance Tips',
-        excerpt: 'Practical tips to optimize your React app and avoid unnecessary re-renders.',
-        tags: ['React', 'Performance'],
-        status: 'published',
-        date: 'Apr 28, 2026',
-    },
-    {
-        id: 4,
-        title: 'Building REST APIs with Express',
-        excerpt: 'Step by step guide to building a production-ready REST API with Express.js.',
-        tags: ['Node.js', 'Express', 'API'],
-        status: 'draft',
-        date: 'Apr 20, 2026',
-    },
-]
+import { Plus, Pencil, Trash2, FileText, Loader } from 'lucide-react'
+import { toast } from 'sonner'
+import Loading from '../../components/ui/Loading'
+import { getAllBlogs, deleteBlog } from '../../libs/blogService'
 
 const statusStyles = {
-    published: 'bg-green-500/10 text-green-500',
-    draft: 'bg-fg-muted/10 text-fg-muted',
+    true: 'bg-green-500/10 text-green-500',
+    false: 'bg-fg-muted/10 text-fg-muted',
 }
 
 export default function BlogPage() {
     const navigate = useNavigate()
-    const [posts, setPosts] = useState(TEMP_POSTS)
+    const [blogs, setBlogs] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [deleteLoadingId, setDeleteLoadingId] = useState(null)
     const [filter, setFilter] = useState('all')
 
-    const filtered =
-        filter === 'all' ? posts : posts.filter((p) => p.status === filter)
+    useEffect(() => {
+        fetchBlogs()
+    }, [])
 
-    const handleDelete = (id) => {
-        setPosts((prev) => prev.filter((p) => p.id !== id))
+    const fetchBlogs = async () => {
+        try {
+            setLoading(true)
+            const response = await getAllBlogs()
+            setBlogs(response.data)
+        } catch (err) {
+            toast.error('Failed to fetch blogs')
+        } finally {
+            setLoading(false)
+        }
     }
+
+    const handleDelete = async (id) => {
+        try {
+            setDeleteLoadingId(id)
+            await deleteBlog(id)
+            setBlogs((prev) => prev.filter((b) => b.id !== id))
+            toast.success('Blog deleted')
+        } catch (err) {
+            toast.error('Failed to delete blog')
+        } finally {
+            setDeleteLoadingId(null)
+        }
+    }
+
+    const filtered =
+        filter === 'all'
+            ? blogs
+            : blogs.filter((b) => (filter === 'published' ? b.status : !b.status))
+
+    if (loading) return <Loading />
 
     return (
         <div className="space-y-6">
@@ -60,7 +59,7 @@ export default function BlogPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-display font-bold text-fg">Blog</h1>
-                    <p className="text-sm text-fg-muted mt-1">{posts.length} posts total</p>
+                    <p className="text-sm text-fg-muted mt-1">{blogs.length} posts total</p>
                 </div>
                 <button
                     onClick={() => navigate('/blog/new')}
@@ -95,30 +94,36 @@ export default function BlogPage() {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {filtered.map((post) => (
+                    {filtered.map((blog) => (
                         <div
-                            key={post.id}
+                            key={blog.id}
                             className="bg-surface border border-border rounded-xl p-5 flex items-start justify-between gap-4 hover:border-accent/50 transition-all"
                         >
                             <div className="flex-1 min-w-0 space-y-2">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className="font-display font-semibold text-fg">{post.title}</h3>
+                                    <h3 className="font-display font-semibold text-fg">{blog.title}</h3>
                                     <span
-                                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyles[post.status]}`}
+                                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyles[blog.status]}`}
                                     >
-                                        {post.status}
+                                        {blog.status ? 'published' : 'draft'}
                                     </span>
                                 </div>
-                                <p className="text-sm text-fg-muted line-clamp-2">{post.excerpt}</p>
+                                <p className="text-sm text-fg-muted line-clamp-2">{blog.excerpt}</p>
                                 <div className="flex items-center gap-3">
-                                    <span className="text-xs text-fg-muted">{post.date}</span>
+                                    <span className="text-xs text-fg-muted">
+                                        {new Date(blog.createdAt).toLocaleDateString('en-US', {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                        })}
+                                    </span>
                                     <div className="flex flex-wrap gap-1.5">
-                                        {post.tags.map((tag) => (
+                                        {blog.tags?.split(',').map((tag) => (
                                             <span
                                                 key={tag}
                                                 className="text-xs px-2 py-0.5 rounded-md bg-bg-secondary text-fg-muted border border-border"
                                             >
-                                                {tag}
+                                                {tag.trim()}
                                             </span>
                                         ))}
                                     </div>
@@ -127,16 +132,21 @@ export default function BlogPage() {
 
                             <div className="flex items-center gap-1 shrink-0">
                                 <button
-                                    onClick={() => navigate(`/blog/${post.id}/edit`)}
+                                    onClick={() => navigate(`/blog/${blog.id}/edit`)}
                                     className="w-8 h-8 rounded-lg flex items-center justify-center text-fg-muted hover:bg-surface-hover hover:text-fg transition-all"
                                 >
                                     <Pencil size={15} />
                                 </button>
                                 <button
-                                    onClick={() => handleDelete(post.id)}
-                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-fg-muted hover:bg-red-500/10 hover:text-red-500 transition-all"
+                                    onClick={() => handleDelete(blog.id)}
+                                    disabled={deleteLoadingId === blog.id}
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-fg-muted hover:bg-red-500/10 hover:text-red-500 transition-all disabled:opacity-50"
                                 >
-                                    <Trash2 size={15} />
+                                    {deleteLoadingId === blog.id ? (
+                                        <Loader size={15} className="animate-spin" />
+                                    ) : (
+                                        <Trash2 size={15} />
+                                    )}
                                 </button>
                             </div>
                         </div>
